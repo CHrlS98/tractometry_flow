@@ -74,7 +74,7 @@ Channel
 Channel
     .fromFilePairs("$params.input/**/*fodf.nii.gz",
         size: -1) { it.parent.name }
-    .set{in_fodf}
+    .into{fodf_for_fixel_afd; fodf_for_bingham_fit}
 
 Channel
     .fromFilePairs("$params.input/**/*local_tracking_mask.nii.gz",
@@ -88,6 +88,7 @@ Channel
     .empty()
     .set{fodf_for_bingham_fit}
 
+/*
 if (params.compute_fixel_afd && params.compute_fixel_bingham_metrics) {
     in_fodf
         .into{fodf_for_fixel_afd; fodf_for_bingham_fit}
@@ -100,6 +101,7 @@ else if (params.compute_fixel_bingham_metrics) {
     in_fodf
         .set{fodf_for_bingham_fit}
 }
+*/
 
 fodf_for_bingham_fit
     .join(mask_for_bingham_fit)
@@ -138,6 +140,9 @@ process Fixel_AFD {
         fixel_afd_for_endpoints_metrics, fixel_afd_for_endpoints_roi_stats,
         fixel_afd_for_mean_std_per_point
 
+    when:
+    params.compute_fixel_afd
+
     script:
     String bundles_list = bundles.join(", ").replace(',', '')
     """
@@ -160,6 +165,9 @@ process Bingham_Fit_FODF {
 
     output:
     tuple sid, "$output_file" into bingham_for_fixel_bingham_metrics
+
+    when:
+    params.compute_fixel_bingham_metrics
 
     script:
     output_file = "${fodf.simpleName}_bingham.nii.gz"

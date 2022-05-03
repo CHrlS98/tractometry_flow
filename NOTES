@@ -1,0 +1,3 @@
+todo:
+* Compute centroid does not run, test with params false.
+* Used when statement in processes fixel, needs testing.
