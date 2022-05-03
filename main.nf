@@ -5,6 +5,9 @@ import groovy.json.JsonOutput
 
 params.help = false
 params.input = false
+params.compute_fixel_afd = false
+params.compute_fixel_bingham_metrics = false
+
 
 if(params.help) {
     usage = file("$baseDir/USAGE")
@@ -49,7 +52,9 @@ workflow.onComplete {
 Channel
     .fromFilePairs("$params.input/**/bundles/*.trk",
                    size: -1) { it.parent.parent.name }
-    .into{bundles_for_rm_invalid; bundles_for_fixel_afd}
+    .into{bundles_for_rm_invalid;
+          bundles_for_fixel_afd;
+          bundles_for_fixel_bingham_metric}
 
 Channel
     .fromFilePairs("$params.input/**/metrics/*.nii.gz",
@@ -69,7 +74,36 @@ Channel
 Channel
     .fromFilePairs("$params.input/**/*fodf.nii.gz",
         size: -1) { it.parent.name }
+    .set{in_fodf}
+
+Channel
+    .fromFilePairs("$params.input/**/*local_tracking_mask.nii.gz",
+        size: -1) { it.parent.name }
+    .into{mask_for_bingham_fit; mask_for_fixel_bingham_metrics}
+
+Channel
+    .empty()
     .set{fodf_for_fixel_afd}
+Channel
+    .empty()
+    .set{fodf_for_bingham_fit}
+
+if (params.compute_fixel_afd && params.compute_fixel_bingham_metrics) {
+    in_fodf
+        .into{fodf_for_fixel_afd; fodf_for_bingham_fit}
+}
+else if (params.compute_fixel_afd) {
+    in_fodf
+        .set{fodf_for_fixel_afd}
+}
+else if (params.compute_fixel_bingham_metrics) {
+    in_fodf
+        .set{fodf_for_bingham_fit}
+}
+
+fodf_for_bingham_fit
+    .join(mask_for_bingham_fit)
+    .set{input_for_bigham_fit}
 
 in_metrics
     .set{metrics_for_rename}
@@ -90,6 +124,7 @@ process Rename_Metrics {
     done
     """
 }
+
 bundles_for_fixel_afd
     .join(fodf_for_fixel_afd)
     .set{bundle_fodf_for_fixel_afd}
@@ -115,6 +150,82 @@ process Fixel_AFD {
             bname=\$(basename \$bundle .trk)
         fi
         scil_compute_mean_fixel_afd_from_bundles.py \$bundle $fodf \${bname}_afd_metric.nii.gz
+    done
+    """
+}
+
+process Bingham_Fit_FODF {
+    input:
+    tuple sid, file(fodf), file(mask) from input_for_bigham_fit
+
+    output:
+    tuple sid, "$output_file" into bingham_for_fixel_bingham_metrics
+
+    script:
+    output_file = "${fodf.simpleName}_bingham.nii.gz"
+    """
+    scil_fit_bingham_to_fodf.py $fodf $output_file --mask $mask
+    """
+}
+
+bingham_for_fixel_bingham_metrics
+    .join(mask_for_fixel_bingham_metrics)
+    .set{ input_for_fixel_bingham_metrics }
+
+process Compute_Bingham_Fixel_Metrics {
+    input:
+    tuple sid, file(bingham), file(mask) from input_for_fixel_bingham_metrics
+
+    output:
+    tuple sid, "$bingham", "$output_fd", "$output_fs", "$output_ff" into\
+          bingham_metrics_for_mean_along_bundle
+
+    script:
+    output_fd = "${bingham.simpleName}_fd.nii.gz"
+    output_fs = "${bingham.simpleName}_fs.nii.gz"
+    output_ff = "${bingham.simpleName}_ff.nii.gz"
+    """
+    scil_compute_lobe_specific_fodf_metrics.py $bingham\
+        --out_fd $output_fd --out_fs $output_fs --out_ff $output_ff\
+        --mask $mask
+    """
+}
+
+bundles_for_fixel_bingham_metric
+    .join(bingham_metrics_for_mean_along_bundle)
+    .set{bundle_bingham_for_mean_along_bundle}
+
+process Fixel_Bingham_Along_Bundle {
+    input:
+    tuple sid, file(bundles), file(bingham),\
+          file(fd), file(fs), file(ff)\
+    from bundle_bingham_for_mean_along_bundle
+
+    output:
+    set sid, "*_fd_metric.nii.gz" into fixel_fd_for_mean_std,
+        fixel_fd_for_endpoints_metrics, fixel_fd_for_endpoints_roi_stats,
+        fixel_fd_for_mean_std_per_point
+    set sid, "*_fs_metric.nii.gz" into fixel_fs_for_mean_std,
+        fixel_fs_for_endpoints_metrics, fixel_fs_for_endpoints_roi_stats,
+        fixel_fs_for_mean_std_per_point
+    set sid, "*_ff_metric.nii.gz" into fixel_ff_for_mean_std,
+        fixel_ff_for_endpoints_metrics, fixel_ff_for_endpoints_roi_stats,
+        fixel_ff_for_mean_std_per_point
+
+    script:
+    String bundles_list = bundles.join(", ").replace(',', '')
+    """
+    for bundle in $bundles_list;
+        do if [[ \$bundle == *"__"* ]]; then
+            pos=\$((\$(echo \$bundle | grep -b -o __ | cut -d: -f1)+2))
+            bname=\${bundle:\$pos}
+            bname=\$(basename \$bname .trk)
+        else
+            bname=\$(basename \$bundle .trk)
+        fi
+        scil_compute_mean_fixel_lobe_metric_from_bundles.py \$bundle \
+            $bingham $fd $fs $ff \${bname}_fd_metric.nii.gz\
+            \${bname}_fs_metric.nii.gz \${bname}_ff_metric.nii.gz
     done
     """
 }
@@ -425,10 +536,15 @@ process Bundle_Endpoints_Map {
     """
 }
 
-metrics_for_endpoints_roi_stats
+Channel
+    .empty()
+    .mix(metrics_for_endpoints_roi_stats)
     .mix(fixel_afd_for_endpoints_roi_stats)
+    .mix(fixel_fd_for_endpoints_roi_stats)
+    .mix(fixel_fs_for_endpoints_roi_stats)
+    .mix(fixel_ff_for_endpoints_roi_stats)
     .groupTuple(by: 0)
-     .map{it -> [it[0], it[1..-1].flatten()]}
+    .map{it -> [it[0], it[1..-1].flatten()]}
     .set{metrics_afd_for_endpoints_roi_stats}
 
 metrics_afd_for_endpoints_roi_stats
@@ -532,7 +648,7 @@ process Bundle_Endpoints_Metrics {
 metrics_for_mean_std
     .mix(fixel_afd_for_mean_std)
     .groupTuple(by: 0)
-     .map{it -> [it[0], it[1..-1].flatten()]}
+    .map{it -> [it[0], it[1..-1].flatten()]}
     .set{metrics_afd_for_mean_std}
 
 metrics_afd_for_mean_std
@@ -659,7 +775,7 @@ process Bundle_Volume_Per_Label {
 metrics_for_mean_std_per_point
     .mix(fixel_afd_for_mean_std_per_point)
     .groupTuple(by: 0)
-     .map{it -> [it[0], it[1..-1].flatten()]}
+    .map{it -> [it[0], it[1..-1].flatten()]}
     .set{metrics_afd_for_std_per_point}
 
 metrics_afd_for_std_per_point
