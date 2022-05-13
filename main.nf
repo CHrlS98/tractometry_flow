@@ -81,28 +81,6 @@ Channel
         size: -1) { it.parent.name }
     .into{mask_for_bingham_fit; mask_for_fixel_bingham_metrics}
 
-Channel
-    .empty()
-    .set{fodf_for_fixel_afd}
-Channel
-    .empty()
-    .set{fodf_for_bingham_fit}
-
-/*
-if (params.compute_fixel_afd && params.compute_fixel_bingham_metrics) {
-    in_fodf
-        .into{fodf_for_fixel_afd; fodf_for_bingham_fit}
-}
-else if (params.compute_fixel_afd) {
-    in_fodf
-        .set{fodf_for_fixel_afd}
-}
-else if (params.compute_fixel_bingham_metrics) {
-    in_fodf
-        .set{fodf_for_bingham_fit}
-}
-*/
-
 fodf_for_bingham_fit
     .join(mask_for_bingham_fit)
     .set{input_for_bigham_fit}
@@ -602,8 +580,13 @@ process Bundle_Metrics_Stats_In_Endpoints {
     """
 }
 
-metrics_for_endpoints_metrics
+Channel
+    .empty()
+    .mix(metrics_for_endpoints_metrics)
     .mix(fixel_afd_for_endpoints_metrics)
+    .mix(fixel_fs_for_endpoints_metrics)
+    .mix(fixel_ff_for_endpoints_metrics)
+    .mix(fixel_fd_for_endpoints_metrics)
     .groupTuple(by: 0)
     .map{it -> [it[0], it[1..-1].flatten()]}
     .set{metrics_afd_for_endpoints_metrics}
@@ -653,8 +636,13 @@ process Bundle_Endpoints_Metrics {
     """
 }
 
-metrics_for_mean_std
+Channel
+    .empty()
+    .mix(metrics_for_mean_std)
     .mix(fixel_afd_for_mean_std)
+    .mix(fixel_fs_for_mean_std)
+    .mix(fixel_ff_for_mean_std)
+    .mix(fixel_fd_for_mean_std)
     .groupTuple(by: 0)
     .map{it -> [it[0], it[1..-1].flatten()]}
     .set{metrics_afd_for_mean_std}
@@ -662,6 +650,7 @@ metrics_for_mean_std
 metrics_afd_for_mean_std
     .combine(bundles_for_mean_std, by: 0)
     .set{metrics_bundles_for_mean_std}
+
 process Bundle_Mean_Std {
     input:
     set sid, file(metrics), file(bundles) from metrics_bundles_for_mean_std
@@ -780,8 +769,14 @@ process Bundle_Volume_Per_Label {
     """
 }
 
-metrics_for_mean_std_per_point
+
+Channel
+    .empty()
+    .mix(metrics_for_mean_std_per_point)
     .mix(fixel_afd_for_mean_std_per_point)
+    .mix(fixel_fs_for_mean_std_per_point)
+    .mix(fixel_ff_for_mean_std_per_point)
+    .mix(fixel_fd_for_mean_std_per_point)
     .groupTuple(by: 0)
     .map{it -> [it[0], it[1..-1].flatten()]}
     .set{metrics_afd_for_std_per_point}
