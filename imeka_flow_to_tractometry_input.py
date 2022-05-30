@@ -51,21 +51,23 @@ def main():
     os.mkdir(args.output_hc)
     os.mkdir(args.output_ms)
 
-    sub_dirs = [dir for dir in os.listdir(args.root_dir) 
-                if os.path.isdir(os.path.join(args.root_dir, dir))]
+    abs_root_dir = os.path.abspath(args.root_dir)
+
+    sub_dirs = [dir for dir in os.listdir(abs_root_dir) 
+                if os.path.isdir(os.path.join(abs_root_dir, dir))]
 
     for sub_id in sub_dirs:
         #  FODF file
-        fodf_file = os.path.join(args.root_dir, sub_id, 'FODF',
-                                 os.listdir(os.path.join(args.root_dir, sub_id,
+        fodf_file = os.path.join(abs_root_dir, sub_id, 'FODF',
+                                 os.listdir(os.path.join(abs_root_dir, sub_id,
                                                          'FODF'))[0])
         # Mask file
-        mask_file = os.path.join(args.root_dir, sub_id, 'Add_Additional_Mask_To_WM',
-                                 os.listdir(os.path.join(args.root_dir, sub_id,
+        mask_file = os.path.join(abs_root_dir, sub_id, 'Add_Additional_Mask_To_WM',
+                                 os.listdir(os.path.join(abs_root_dir, sub_id,
                                                          'Add_Additional_Mask_To_WM'))[0])
 
         # all bundle files
-        bundles = glob(os.path.join(args.root_dir, sub_id, 'Tracking_and_Bundling', '**/*.trk'))
+        bundles = glob(os.path.join(abs_root_dir, sub_id, 'Tracking_and_Bundling', '**/*.trk'))
 
         if '-ms_' in sub_id:
             output_dir = args.output_ms
