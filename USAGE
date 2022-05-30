@@ -13,18 +13,20 @@ DESCRIPTION
 
                             [root]
                             ├── S1
-                            │   ├── *lesion_mask.nii.gz (optional)
-                            │   ├── *fodf.nii.gz (optional to generate fixel AFD)
-                            │   ├── metrics
+                            │   ├── *lesion_mask.nii.gz (optional)
+                            │   ├── *fodf.nii.gz (optional to generate fixel AFD)
+                            |   ├── *wm_mask.nii.gz (optional but required for bingham metrics)
+                            │   ├── metrics
                             │   │   └── *.nii.gz
-                            │   └── bundles
+                            │   └── bundles
                             │       └── *.trk
                             └── S2
-                                ├── *lesion_mask.nii.gz (optional)
+                                ├── *lesion_mask.nii.gz (optional)
                                 ├── *fodf.nii.gz (optional to generate fixel AFD)
-                                ├── metrics
+                                ├── *wm_mask.nii.gz (optional but required for bingham metrics)
+                                ├── metrics
                                 │   └── *.nii.gz
-                                └── bundles
+                                └── bundles
                                     └── *.trk
 
                             Bundle centroid will be computed on-the-fly if no
@@ -35,18 +37,18 @@ DESCRIPTION
 
                             [root]
                             ├── S1
-                            │   ├── metrics
+                            │   ├── metrics
                             │   │   └── *.nii.gz
-                            │   ├── centroids
+                            │   ├── centroids
                             │   │   └── [Bundle_Name]_centroid.trk
-                            │   └── bundles
+                            │   └── bundles
                             │       └── [Bundle_Name].trk
                             └── S2
-                                ├── metrics
+                                ├── metrics
                                 │   └── *.nii.gz
-                                ├── centroids
+                                ├── centroids
                                 │   └── [Bundle_Name]_centroid.trk
-                                └── bundles
+                                └── bundles
                                     └── [Bundle_Name].trk
 
                             Bundle and centroid file names must match the
@@ -67,6 +69,8 @@ OPTIONAL ARGUMENTS (current value)
 --min_lesion_vol                            To be consider 'a lesion' for the pipeline, a lesion must be at least ($min_lesion_vol) mm3.
 --use_provided_centroids                    Use the provided pre-computed centroids rather than using automatic computation ($use_provided_centroids)
 --bundle_suffix_to_remove                   Use to remove the suffix from RBx-Flow ($bundle_suffix_to_remove)
+--compute_fixel_afd                         Compute fixel AFD. Will only effectively run if FODF are provided. ($compute_fixel_afd)
+--compute_fixel_bingham_metrics             Compute fixel bingham metrics. Will only run if FODF and WM mask are provided. ($compute_fixel_bingham_metrics)
 
 --min_streamline_count                      Minimum streamline count threshold from trimming of 'edges' in the voxel labels map
 --min_voxel_count                           Minimum voxel count threshold from trimming of 'edges' in the voxel labels map

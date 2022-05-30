@@ -80,7 +80,7 @@ def main():
 
         os.mkdir(output_dir)
         os.symlink(fodf_file, os.path.join(output_dir, os.path.basename(fodf_file)))
-        os.symlink(mask_file, os.path.join(output_dir, os.path.basename(mask_file)))
+        os.symlink(mask_file, os.path.join(output_dir, sub_id+'_wm_mask.nii.gz'))
         out_bundles_dir = os.path.join(output_dir, 'bundles')
         os.mkdir(out_bundles_dir)
         for bundle_f in bundles:

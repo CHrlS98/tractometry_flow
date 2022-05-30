@@ -5,8 +5,6 @@ import groovy.json.JsonOutput
 
 params.help = false
 params.input = false
-params.compute_fixel_afd = false
-params.compute_fixel_bingham_metrics = false
 
 
 if(params.help) {
@@ -23,7 +21,9 @@ if(params.help) {
                 "endpoints_metric_stats_normalize_weights":"$params.endpoints_metric_stats_normalize_weights",
                 "skip_projection_endpoints_metrics":"$params.skip_projection_endpoints_metrics",
                 "cpu_count":"$cpu_count",
-                "bundle_suffix_to_remove":"$params.bundle_suffix_to_remove"
+                "bundle_suffix_to_remove":"$params.bundle_suffix_to_remove",
+                "compute_fixel_bingham_metrics":"$params.compute_fixel_bingham_metrics",
+                "compute_fixel_afd":"$params.compute_fixel_afd"
         ]
 
     engine = new groovy.text.SimpleTemplateEngine()
@@ -77,7 +77,7 @@ Channel
     .into{fodf_for_fixel_afd; fodf_for_bingham_fit}
 
 Channel
-    .fromFilePairs("$params.input/**/*local_tracking_mask.nii.gz",
+    .fromFilePairs("$params.input/**/*wm_mask.nii.gz",
         size: -1) { it.parent.name }
     .into{mask_for_bingham_fit; mask_for_fixel_bingham_metrics}
 
@@ -150,7 +150,7 @@ process Bingham_Fit_FODF {
     script:
     output_file = "${fodf.simpleName}_bingham.nii.gz"
     """
-    scil_fit_bingham_to_fodf.py $fodf $output_file --mask $mask
+    scil_fit_bingham_to_fodf.py $fodf $output_file --mask $mask --processes 4
     """
 }
 
