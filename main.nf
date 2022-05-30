@@ -173,7 +173,7 @@ process Compute_Bingham_Fixel_Metrics {
     """
     scil_compute_lobe_specific_fodf_metrics.py $bingham\
         --out_fd $output_fd --out_fs $output_fs --out_ff $output_ff\
-        --mask $mask
+        --mask $mask --processes 4
     """
 }
 
