@@ -52,9 +52,7 @@ workflow.onComplete {
 Channel
     .fromFilePairs("$params.input/**/bundles/*.trk",
                    size: -1) { it.parent.parent.name }
-    .into{bundles_for_rm_invalid;
-          bundles_for_fixel_afd;
-          bundles_for_fixel_bingham_metric}
+    .into{bundles_for_rm_invalid; bundles_for_fixel_afd}
 
 Channel
     .fromFilePairs("$params.input/**/metrics/*.nii.gz",
@@ -101,6 +99,32 @@ process Rename_Metrics {
     """
     for metric in *.nii.gz; do
         mv \$metric \$(basename \${metric/${sid}__/} .nii.gz)_metric.nii.gz
+    done
+    """
+}
+
+process Remove_Invalid_Streamlines {
+    input:
+    set sid, file(bundles) from bundles_for_rm_invalid
+
+    output:
+    set sid, "${sid}__*_ic.trk" into bundles_for_label_and_distance_map,\
+        bundles_for_centroids, bundles_for_fixel_bingham_metric
+
+    script:
+    String bundles_list = bundles.join(", ").replace(',', '')
+    """
+    for bundle in $bundles_list;
+      do if [[ \$bundle == *"__"* ]]; then
+          pos=\$((\$(echo \$bundle | grep -b -o __ | cut -d: -f1)+2))
+          bname=\${bundle:\$pos}
+          bname=\$(basename \$bname .trk)
+      else
+          bname=\$(basename \$bundle .trk)
+      fi
+      bname=\${bname/$params.bundle_suffix_to_remove/}
+
+      scil_remove_invalid_streamlines.py \$bundle ${sid}__\${bname}_ic.trk --cut_invalid -f
     done
     """
 }
@@ -212,31 +236,6 @@ process Fixel_Bingham_Along_Bundle {
         scil_compute_mean_fixel_lobe_metric_from_bundles.py \$bundle \
             $bingham $fd $fs $ff \${bname}_fd_metric.nii.gz\
             \${bname}_fs_metric.nii.gz \${bname}_ff_metric.nii.gz
-    done
-    """
-}
-
-process Remove_Invalid_Streamlines {
-    input:
-    set sid, file(bundles) from bundles_for_rm_invalid
-
-    output:
-    set sid, "${sid}__*_ic.trk" into bundles_for_label_and_distance_map, bundles_for_centroids
-
-    script:
-    String bundles_list = bundles.join(", ").replace(',', '')
-    """
-    for bundle in $bundles_list;
-      do if [[ \$bundle == *"__"* ]]; then
-          pos=\$((\$(echo \$bundle | grep -b -o __ | cut -d: -f1)+2))
-          bname=\${bundle:\$pos}
-          bname=\$(basename \$bname .trk)
-      else
-          bname=\$(basename \$bundle .trk)
-      fi
-      bname=\${bname/$params.bundle_suffix_to_remove/}
-
-      scil_remove_invalid_streamlines.py \$bundle ${sid}__\${bname}_ic.trk --cut_invalid -f
     done
     """
 }
