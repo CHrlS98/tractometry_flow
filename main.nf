@@ -385,6 +385,7 @@ lesion_for_lesion_load
     .join(voxel_label_map_for_lesion_load, by: 0)
     .set{lesion_bundles_voxel_label_maps_for_lesion_load}
 
+// this process wont run for now.
 process Lesion_Load {
     input:
     set sid, file(lesion), file(bundles), file(label_maps) from\
@@ -595,6 +596,7 @@ bundles_for_endpoints_metrics
     .combine(metrics_afd_for_endpoints_metrics, by: 0)
     .set{metrics_bundles_for_endpoints_metrics}
 
+// this one won't run by default
 process Bundle_Endpoints_Metrics {
     input:
     set sid, file(bundle), file(metrics) from metrics_bundles_for_endpoints_metrics
@@ -674,11 +676,23 @@ process Bundle_Mean_Std {
         bname=\${bname/_uniformized/}
         mv \$bundle \$bname.trk
 
+        # extract all metrics which aren't bundle-specific
+        b_metrics=\$(find . -maxdepth 1 -type f -not -name "*afd*" -not -name "*fd*" -not -name "*ff*" -not -name "*fs*")
+
+        # add bundle specific metrics when available
         if [ -f "\${bname}_afd_metric.nii.gz" ]; then
-            b_metrics="!(*afd*).nii.gz \${bname}_afd_metric.nii.gz"
-        else
-            b_metrics="$metrics"
+            b_metrics="\$b_metrics \${bname}_afd_metric.nii.gz"
         fi
+        if [ -f "\${bname}_fd_metric.nii.gz" ]; then
+            b_metrics="\$b_metrics \${bname}_fd_metric.nii.gz"
+        fi
+        if [ -f "\${bname}_fs_metric.nii.gz" ]; then
+            b_metrics="\$b_metrics \${bname}_fs_metric.nii.gz"
+        fi
+        if [ -f "\${bname}_ff_metric.nii.gz" ]; then
+            b_metrics="\$b_metrics \${bname}_ff_metric.nii.gz"
+        fi
+
         scil_compute_bundle_mean_std.py $density_weighting \$bname.trk \${b_metrics} >\
             \${bname}.json
     done
